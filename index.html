@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E1726">
+<title>출근 기록</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+:root{
+  --ink:#0E1726;
+  --ink-2:#17223A;
+  --ink-3:#1E2C49;
+  --line:#2B3A57;
+  --pale:#C8D3E6;
+  --dim:#7A8AA8;
+  --amber:#FFB44D;
+  --mint:#6FD8B0;
+  --rose:#FF8A8A;
+  --pad:20px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--ink);}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR","Malgun Gothic",Roboto,"Apple SD Gothic Neo",sans-serif;
+  color:var(--pale);
+  font-size:16px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 32px);
+}
+.shell{max-width:520px;margin:0 auto;padding:0 var(--pad)}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+/* ── 날짜 머리 ── */
+.daystamp{
+  display:flex;align-items:baseline;gap:10px;
+  padding:22px 0 18px;border-bottom:1px solid var(--line);
+}
+.daystamp .d{font-size:15px;font-weight:600;color:var(--pale)}
+.daystamp .w{font-size:15px;color:var(--dim)}
+.daystamp .live{margin-left:auto;font-size:15px;color:var(--dim)}
+
+/* ── 설치 안내 / 연결 상태 ── */
+.installbar{
+  display:none;align-items:center;gap:12px;
+  border:1px solid var(--amber);border-radius:12px;
+  padding:14px;margin-top:18px;background:rgba(255,180,77,.07);
+}
+.installbar.show{display:flex}
+.installbar .txt{font-size:14.5px;line-height:1.45}
+.installbar .txt b{display:block;font-weight:700;color:var(--amber);margin-bottom:2px}
+.installbar button{width:auto;flex:0 0 auto;margin-left:auto;padding:11px 15px;
+  background:var(--amber);border-color:var(--amber);color:#241503;border-radius:10px}
+.daystamp .offline{
+  display:none;font-size:13px;color:var(--rose);font-weight:600;
+}
+body.is-offline .daystamp .offline{display:inline}
+body.is-offline .daystamp .live{margin-left:10px}
+.daystamp .live{margin-left:auto}
+
+
+.hero{padding:34px 0 30px;text-align:center}
+.hero .kicker{font-size:15px;color:var(--dim);margin-bottom:6px}
+.hero .what{font-size:21px;font-weight:700;color:var(--pale);margin-bottom:2px}
+.hero .clock{
+  font-size:clamp(4.2rem,21vw,6.6rem);
+  font-weight:800;letter-spacing:-0.045em;line-height:.95;
+  color:var(--amber);
+}
+.hero .clock .sec{font-size:.32em;font-weight:600;letter-spacing:-0.01em;color:#B9812F;margin-left:.12em}
+.hero .note{font-size:15px;color:var(--dim);margin-top:12px}
+.hero.empty .clock{color:var(--line)}
+.hero.dupe .clock{color:var(--dim)}
+.hero.dupe .what{color:var(--dim)}
+
+@media (prefers-reduced-motion: no-preference){
+  .hero.fresh .clock{animation:land .5s cubic-bezier(.16,1,.3,1) both}
+  .hero.fresh .what{animation:land .5s .06s cubic-bezier(.16,1,.3,1) both}
+}
+@keyframes land{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+
+/* ── 타임라인 레일 ── */
+.rail{border-top:1px solid var(--line);padding:22px 0 4px}
+.stop{display:flex;gap:16px;align-items:flex-start;position:relative;padding-bottom:22px}
+.stop:last-child{padding-bottom:6px}
+.stop .dot{
+  flex:0 0 auto;width:13px;height:13px;border-radius:50%;margin-top:5px;
+  border:2px solid var(--line);background:var(--ink);position:relative;z-index:1;
+}
+.stop.done .dot{border-color:var(--amber);background:var(--amber)}
+.stop:not(:last-child)::before{
+  content:"";position:absolute;left:6px;top:18px;bottom:0;width:1px;background:var(--line);
+}
+.stop.done:not(:last-child)::before{background:linear-gradient(var(--amber),var(--line))}
+.stop .label{font-size:16px;font-weight:600}
+.stop:not(.done) .label{color:var(--dim);font-weight:500}
+.stop .time{margin-left:auto;font-size:19px;font-weight:700;letter-spacing:-0.02em}
+.stop:not(.done) .time{color:var(--line);font-weight:500}
+.stop .tail{display:block;font-size:14px;color:var(--dim);font-weight:400}
+
+/* ── 구간 ── */
+.legs{display:flex;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:14px}
+.leg{flex:1;padding:16px 0;text-align:center;border-right:1px solid var(--line)}
+.leg:last-child{border-right:0}
+.leg .v{font-size:22px;font-weight:700;letter-spacing:-0.02em;color:var(--pale)}
+.leg.total .v{color:var(--mint)}
+.leg .k{font-size:13px;color:var(--dim);margin-top:2px}
+.leg.blank .v{color:var(--line)}
+
+/* ── 섹션 ── */
+section{padding:28px 0 4px}
+h2{font-size:14px;font-weight:600;color:var(--dim);margin-bottom:14px}
+
+/* ── 버튼 ── */
+.stack{display:flex;flex-direction:column;gap:9px}
+button{
+  font:inherit;font-weight:600;color:var(--pale);
+  background:var(--ink-2);border:1px solid var(--line);border-radius:12px;
+  padding:15px 16px;width:100%;text-align:left;cursor:pointer;
+  display:flex;align-items:center;gap:12px;
+  transition:background .12s ease,border-color .12s ease;
+}
+button:active{background:var(--ink-3)}
+button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+button[disabled]{opacity:.42;cursor:default}
+button .tag{margin-left:auto;font-size:14px;font-weight:600;color:var(--dim)}
+button.ghost{background:transparent;padding:13px 16px;font-weight:500}
+button.warn{color:var(--rose)}
+.row{display:flex;gap:9px}
+.row button{width:auto;flex:1;justify-content:center;text-align:center}
+
+/* ── 태그 카드 ── */
+.tagcard{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:9px;background:var(--ink-2)}
+.tagcard .top{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.tagcard .nm{font-size:16px;font-weight:600}
+.tagcard .url{
+  font-size:12.5px;color:var(--dim);word-break:break-all;line-height:1.45;
+  background:var(--ink);border-radius:8px;padding:9px 10px;margin-bottom:10px;
+}
+.tagcard .row button{padding:11px 10px;font-size:14.5px;border-radius:9px}
+
+/* ── 기록 목록 ── */
+.day{border-top:1px solid var(--line);padding:14px 0}
+.day:last-child{border-bottom:1px solid var(--line)}
+.day .hd{display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
+.day .hd .dt{font-size:15px;font-weight:600}
+.day .hd .wd{font-size:14px;color:var(--dim)}
+.day .hd .tot{margin-left:auto;font-size:15px;font-weight:700;color:var(--mint)}
+.day .hd .tot.none{color:var(--line);font-weight:500}
+.day .marks{display:flex;gap:14px;font-size:14.5px;color:var(--dim)}
+.day .marks b{font-weight:600;color:var(--pale)}
+
+/* ── 인사이트 ── */
+.insight{border-left:2px solid var(--amber);padding:4px 0 4px 14px;font-size:15.5px;line-height:1.6}
+.insight b{color:var(--amber);font-weight:700}
+.muted{font-size:14.5px;color:var(--dim);line-height:1.6}
+.err{color:var(--rose);font-size:14.5px;margin-top:10px;line-height:1.55}
+.ok{color:var(--mint);font-size:14.5px;margin-top:10px;line-height:1.55}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="daystamp">
+    <span class="d num" id="hdDate">—</span>
+    <span class="w" id="hdWeek"></span>
+    <span class="offline">오프라인</span>
+    <span class="live num" id="hdLive"></span>
+  </div>
+
+  <div class="installbar" id="installbar">
+    <div class="txt"><b>홈 화면에 설치하기</b>주소창 없이 열리고, 신호가 없어도 기록돼요.</div>
+    <button id="btnInstall">설치</button>
+  </div>
+
+  <div class="hero empty" id="hero">
+    <div class="kicker" id="heroKicker">오늘 기록</div>
+    <div class="what" id="heroWhat">아직 없음</div>
+    <div class="clock num" id="heroClock">--:--</div>
+    <div class="note" id="heroNote">태그를 찍거나 아래에서 직접 기록하세요.</div>
+  </div>
+
+  <div class="rail" id="rail"></div>
+  <div class="legs" id="legs"></div>
+
+  <section>
+    <h2>직접 기록</h2>
+    <div class="stack" id="manual"></div>
+  </section>
+
+  <section>
+    <h2>NFC 태그</h2>
+    <div id="tags"></div>
+    <p class="muted" id="nfcState"></p>
+  </section>
+
+  <section>
+    <h2>최근 기록</h2>
+    <div id="history"></div>
+  </section>
+
+  <section>
+    <h2>패턴</h2>
+    <div id="insight"></div>
+  </section>
+
+  <section>
+    <h2>데이터</h2>
+    <div class="stack">
+      <button class="ghost" id="btnCsv">CSV로 내보내기<span class="tag num" id="csvCount"></span></button>
+      <button class="ghost warn" id="btnWipe">모든 기록 지우기</button>
+    </div>
+    <p class="muted" id="dataNote" style="margin-top:12px"></p>
+  </section>
+
+</div>
+
+<script>
+"use strict";
+
+/* ────────────────────────────────────────────────
+   이벤트 정의 — 태그 3개에 각각 하나씩 대응
+   ──────────────────────────────────────────────── */
+const EVENTS = [
+  { id:"home_departure", label:"집 출발",   emoji:"🏠" },
+  { id:"bus_board",      label:"버스 탑승", emoji:"🚌" },
+  { id:"office_arrival", label:"회사 도착", emoji:"🏢" }
+];
+const EV = Object.fromEntries(EVENTS.map(e=>[e.id,e]));
+const KEY = "commuteLog.v1";
+const DUPE_WINDOW_SEC = 120;   // 같은 이벤트 2분 내 재태그 → 중복으로 간주
+const DAY_CUTOFF_HOUR = 4;     // 새벽 4시 전은 전날로 묶음
+
+/* ────────────────────────────────────────────────
+   저장소 — localStorage, 실패 시 메모리로 폴백
+   ──────────────────────────────────────────────── */
+const store = (()=>{
+  let ok = true, mem = null;
+  try { localStorage.setItem("__t","1"); localStorage.removeItem("__t"); }
+  catch(e){ ok = false; }
+  return {
+    persistent: ok,
+    load(){
+      if(!ok) return mem || [];
+      try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+      catch(e){ return []; }
+    },
+    save(rows){
+      if(!ok){ mem = rows; return; }
+      try { localStorage.setItem(KEY, JSON.stringify(rows)); }
+      catch(e){ ok = false; mem = rows; }
+    }
+  };
+})();
+
+let records = store.load();
+
+/* ────────────────────────────────────────────────
+   날짜 유틸
+   ──────────────────────────────────────────────── */
+const WD = ["일","월","화","수","목","금","토"];
+const p2 = n => String(n).padStart(2,"0");
+
+function dayKey(d){
+  const x = new Date(d);
+  if(x.getHours() < DAY_CUTOFF_HOUR) x.setDate(x.getDate()-1);
+  return `${x.getFullYear()}-${p2(x.getMonth()+1)}-${p2(x.getDate())}`;
+}
+function hhmm(d){ const x=new Date(d); return `${p2(x.getHours())}:${p2(x.getMinutes())}`; }
+function ss(d){ return p2(new Date(d).getSeconds()); }
+function minsOfDay(d){ const x=new Date(d); return x.getHours()*60 + x.getMinutes() + x.getSeconds()/60; }
+function fmtDur(min){
+  if(min == null) return "—";
+  const m = Math.round(min);
+  return m >= 60 ? `${Math.floor(m/60)}시간 ${m%60}분` : `${m}분`;
+}
+function fmtDurShort(min){
+  if(min == null) return "—";
+  return `${Math.round(min)}분`;
+}
+function weekdayOf(key){
+  const [y,m,d] = key.split("-").map(Number);
+  return WD[new Date(y, m-1, d).getDay()];
+}
+
+/* ────────────────────────────────────────────────
+   기록
+   ──────────────────────────────────────────────── */
+function todayKey(){ return dayKey(new Date()); }
+
+function recordsFor(key){
+  const out = {};
+  for(const r of records){
+    if(dayKey(r.ts) !== key) continue;
+    // 같은 날 같은 이벤트가 여러 번이면 가장 이른 것을 채택
+    if(!out[r.type] || new Date(r.ts) < new Date(out[r.type].ts)) out[r.type] = r;
+  }
+  return out;
+}
+
+function recentDuplicate(type){
+  const now = Date.now();
+  for(const r of records){
+    if(r.type !== type) continue;
+    if((now - new Date(r.ts).getTime())/1000 < DUPE_WINDOW_SEC) return r;
+  }
+  return null;
+}
+
+function addRecord(type, source){
+  const dupe = recentDuplicate(type);
+  if(dupe) return { status:"dupe", record:dupe };
+  const rec = { id: Date.now()+"-"+Math.random().toString(36).slice(2,7),
+                type, ts: new Date().toISOString(), source };
+  records.push(rec);
+  records.sort((a,b)=> new Date(a.ts) - new Date(b.ts));
+  store.save(records);
+  return { status:"new", record:rec };
+}
+
+/* ────────────────────────────────────────────────
+   화면
+   ──────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+
+function paintHeader(){
+  const now = new Date();
+  const k = todayKey();
+  const [y,m,d] = k.split("-");
+  $("hdDate").textContent = `${Number(m)}월 ${Number(d)}일`;
+  $("hdWeek").textContent = weekdayOf(k) + "요일";
+  $("hdLive").textContent = `${p2(now.getHours())}:${p2(now.getMinutes())}`;
+}
+
+function paintHero(state){
+  const hero = $("hero");
+  hero.className = "hero " + (state.mode || "empty");
+  $("heroKicker").textContent = state.kicker;
+  $("heroWhat").textContent   = state.what;
+  $("heroClock").innerHTML    = state.clock;
+  $("heroNote").textContent   = state.note || "";
+}
+
+function heroIdle(){
+  const today = recordsFor(todayKey());
+  const done = EVENTS.filter(e => today[e.id]);
+  if(done.length === 0){
+    paintHero({ mode:"empty", kicker:"오늘 기록", what:"아직 없음",
+      clock:"--:--", note:"태그를 찍거나 아래에서 직접 기록하세요." });
+  } else {
+    const last = done[done.length-1];
+    const r = today[last.id];
+    paintHero({ mode:"", kicker:"마지막 기록", what:`${last.emoji} ${last.label}`,
+      clock:`${hhmm(r.ts)}<span class="sec">:${ss(r.ts)}</span>`,
+      note: done.length === EVENTS.length ? "오늘 출근 기록 완료" : "다음 지점에서 태그하세요." });
+  }
+}
+
+function paintRail(){
+  const today = recordsFor(todayKey());
+  $("rail").innerHTML = EVENTS.map(e=>{
+    const r = today[e.id];
+    return `<div class="stop ${r?"done":""}">
+      <span class="dot"></span>
+      <span class="label">${e.emoji} ${e.label}</span>
+      <span class="time num">${r ? hhmm(r.ts) : "--:--"}</span>
+    </div>`;
+  }).join("");
+}
+
+function legsOf(dayRecs){
+  const t = id => dayRecs[id] ? minsOfDay(dayRecs[id].ts) : null;
+  const a = t("home_departure"), b = t("bus_board"), c = t("office_arrival");
+  return {
+    toBus:   (a!=null && b!=null) ? b-a : null,
+    toWork:  (b!=null && c!=null) ? c-b : null,
+    total:   (a!=null && c!=null) ? c-a : null
+  };
+}
+
+function paintLegs(){
+  const L = legsOf(recordsFor(todayKey()));
+  const cells = [
+    ["출발 → 버스", L.toBus, ""],
+    ["버스 → 회사", L.toWork, ""],
+    ["총 출근시간", L.total, "total"]
+  ];
+  $("legs").innerHTML = cells.map(([k,v,cls])=>
+    `<div class="leg ${cls} ${v==null?"blank":""}">
+       <div class="v num">${v==null?"—":fmtDurShort(v)}</div>
+       <div class="k">${k}</div>
+     </div>`).join("");
+}
+
+function paintManual(){
+  const today = recordsFor(todayKey());
+  $("manual").innerHTML = EVENTS.map(e=>{
+    const r = today[e.id];
+    return `<button data-rec="${e.id}" ${r?"disabled":""}>
+      ${e.emoji} ${e.label}
+      <span class="tag num">${r ? hhmm(r.ts)+" 기록됨" : "지금 기록"}</span>
+    </button>`;
+  }).join("");
+  $("manual").querySelectorAll("[data-rec]").forEach(b=>{
+    b.addEventListener("click", ()=> handleRecord(b.dataset.rec, "manual", true));
+  });
+}
+
+function tagUrl(id){
+  const path = location.pathname.replace(/index\.html$/, "");
+  return location.origin + path + "?event=" + id;
+}
+
+function paintTags(){
+  $("tags").innerHTML = EVENTS.map(e=>`
+    <div class="tagcard">
+      <div class="top"><span class="nm">${e.emoji} ${e.label}</span></div>
+      <div class="url num">${tagUrl(e.id)}</div>
+      <div class="row">
+        <button data-copy="${e.id}">주소 복사</button>
+        <button data-write="${e.id}">태그에 쓰기</button>
+      </div>
+    </div>`).join("");
+
+  $("tags").querySelectorAll("[data-copy]").forEach(b=>{
+    b.addEventListener("click", async ()=>{
+      try{ await navigator.clipboard.writeText(tagUrl(b.dataset.copy));
+        say("주소를 복사했어요.", "ok");
+      }catch(err){ say("복사에 실패했어요. 위 주소를 길게 눌러 직접 복사하세요.", "err"); }
+    });
+  });
+  $("tags").querySelectorAll("[data-write]").forEach(b=>{
+    b.addEventListener("click", ()=> writeTag(b.dataset.write, b));
+  });
+
+  const s = $("nfcState");
+  if(!("NDEFReader" in window)){
+    s.className = "muted";
+    s.textContent = "이 브라우저는 태그 쓰기를 지원하지 않아요. 안드로이드 크롬(HTTPS)에서 열면 앱 안에서 바로 쓸 수 있고, 그 외에는 NFC Tools 앱으로 위 주소를 URL 레코드로 넣으면 돼요.";
+  } else {
+    s.className = "muted";
+    s.textContent = "‘태그에 쓰기’를 누른 뒤 3초 안에 빈 NFC 태그를 휴대폰 뒷면에 대세요.";
+  }
+}
+
+function say(msg, kind){
+  const s = $("nfcState");
+  s.className = kind === "err" ? "err" : "ok";
+  s.textContent = msg;
+}
+
+async function writeTag(id, btn){
+  if(!("NDEFReader" in window)){
+    say("이 브라우저에서는 태그 쓰기를 지원하지 않아요.", "err");
+    return;
+  }
+  const original = btn.innerHTML;
+  btn.innerHTML = "태그를 대세요";
+  btn.disabled = true;
+  try{
+    const w = new NDEFReader();
+    await w.write({ records:[{ recordType:"url", data: tagUrl(id) }] });
+    say(`${EV[id].label} 태그를 만들었어요. 이제 그 태그를 찍으면 바로 기록됩니다.`, "ok");
+  }catch(err){
+    say("태그 쓰기에 실패했어요: " + (err && err.message ? err.message : err) +
+        " — HTTPS 주소인지, NFC가 켜져 있는지, 태그가 쓰기 가능한지 확인해 주세요.", "err");
+  }finally{
+    btn.innerHTML = original;
+    btn.disabled = false;
+  }
+}
+
+function paintHistory(){
+  const keys = [...new Set(records.map(r=>dayKey(r.ts)))].sort().reverse().slice(0,14);
+  if(keys.length === 0){
+    $("history").innerHTML = `<p class="muted">아직 기록이 없어요. 첫 태그를 찍으면 여기에 쌓입니다.</p>`;
+    return;
+  }
+  $("history").innerHTML = keys.map(k=>{
+    const recs = recordsFor(k);
+    const L = legsOf(recs);
+    const [y,m,d] = k.split("-");
+    const marks = EVENTS.map(e=>{
+      const r = recs[e.id];
+      return `<span>${e.emoji} ${r ? `<b class="num">${hhmm(r.ts)}</b>` : "—"}</span>`;
+    }).join("");
+    return `<div class="day">
+      <div class="hd">
+        <span class="dt num">${Number(m)}월 ${Number(d)}일</span>
+        <span class="wd">${weekdayOf(k)}</span>
+        <span class="tot num ${L.total==null?"none":""}">${L.total==null?"—":fmtDur(L.total)}</span>
+      </div>
+      <div class="marks">${marks}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ────────────────────────────────────────────────
+   패턴 분석 — 완결된 날이 5일 이상일 때만
+   ──────────────────────────────────────────────── */
+function paintInsight(){
+  const keys = [...new Set(records.map(r=>dayKey(r.ts)))];
+  const days = keys.map(k=>{
+    const recs = recordsFor(k);
+    const L = legsOf(recs);
+    return { key:k, dep: recs.home_departure ? minsOfDay(recs.home_departure.ts) : null,
+             bus: recs.bus_board ? minsOfDay(recs.bus_board.ts) : null,
+             total: L.total };
+  }).filter(d => d.dep != null && d.total != null);
+
+  const box = $("insight");
+  if(days.length < 5){
+    box.innerHTML = `<p class="muted">완결된 출근 기록이 ${days.length}일 있어요.
+      5일이 모이면 출발 시각과 총 소요시간의 관계를 분석해서 보여드릴게요.</p>`;
+    return;
+  }
+
+  const avg = a => a.reduce((s,x)=>s+x,0)/a.length;
+  const deps = days.map(d=>d.dep).sort((a,b)=>a-b);
+  const median = deps[Math.floor(deps.length/2)];
+  const early = days.filter(d=>d.dep <= median);
+  const late  = days.filter(d=>d.dep >  median);
+
+  const mm = v => { const t = Math.round(v); return `${p2(Math.floor(t/60)%24)}:${p2(t%60)}`; };
+  const avgTotal = avg(days.map(d=>d.total));
+
+  let lines = [];
+  lines.push(`<p class="insight">평균 출근시간은 <b class="num">${fmtDur(avgTotal)}</b>,
+    평균 출발은 <b class="num">${mm(avg(days.map(d=>d.dep)))}</b>예요. (${days.length}일 기준)</p>`);
+
+  if(early.length >= 2 && late.length >= 2){
+    const eT = avg(early.map(d=>d.total)), lT = avg(late.map(d=>d.total));
+    const gap = lT - eT;
+    if(Math.abs(gap) >= 3){
+      lines.push(`<p class="insight" style="margin-top:12px">
+        <b class="num">${mm(median)}</b> 이후에 나간 날은 그 전에 나간 날보다
+        평균 <b class="num">${fmtDurShort(Math.abs(gap))}</b>
+        ${gap > 0 ? "더 걸렸어요" : "덜 걸렸어요"}.</p>`);
+    } else {
+      lines.push(`<p class="muted" style="margin-top:12px">
+        출발 시각이 <b class="num">${mm(median)}</b> 전이든 후든 총 소요시간 차이는
+        ${fmtDurShort(Math.abs(gap))} 수준이라, 아직 뚜렷한 차이는 없어요.</p>`);
+    }
+  }
+
+  const withBus = days.filter(d=>d.bus != null);
+  if(withBus.length >= 5){
+    const waits = withBus.map(d=>d.bus - d.dep);
+    lines.push(`<p class="muted" style="margin-top:12px">
+      집에서 나와 버스를 타기까지 평균 <b class="num">${fmtDurShort(avg(waits))}</b>,
+      가장 오래 걸린 날은 <b class="num">${fmtDurShort(Math.max(...waits))}</b>였어요.</p>`);
+  }
+
+  box.innerHTML = lines.join("");
+}
+
+/* ────────────────────────────────────────────────
+   내보내기 / 초기화
+   ──────────────────────────────────────────────── */
+function exportCsv(){
+  const head = "date,weekday,event,time,iso,source";
+  const rows = records.map(r=>{
+    const k = dayKey(r.ts);
+    return [k, weekdayOf(k), EV[r.type] ? EV[r.type].label : r.type,
+            `${hhmm(r.ts)}:${ss(r.ts)}`, r.ts, r.source||""].join(",");
+  });
+  const blob = new Blob(["\uFEFF" + [head,...rows].join("\n")], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `commute-${todayKey()}.csv`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ────────────────────────────────────────────────
+   기록 처리 + 진입
+   ──────────────────────────────────────────────── */
+function handleRecord(type, source, fromButton){
+  if(!EV[type]){
+    paintHero({ mode:"empty", kicker:"알 수 없는 태그", what:type,
+      clock:"--:--", note:"태그에 적힌 event 값을 확인해 주세요." });
+    return;
+  }
+  const res = addRecord(type, source);
+  const r = res.record;
+  const e = EV[type];
+
+  if(res.status === "dupe"){
+    paintHero({ mode:"dupe", kicker:"이미 기록됨", what:`${e.emoji} ${e.label}`,
+      clock:`${hhmm(r.ts)}<span class="sec">:${ss(r.ts)}</span>`,
+      note:"방금 전에 기록된 항목이라 다시 저장하지 않았어요." });
+  } else {
+    paintHero({ mode:"fresh", kicker:"기록 완료", what:`${e.emoji} ${e.label}`,
+      clock:`${hhmm(r.ts)}<span class="sec">:${ss(r.ts)}</span>`,
+      note: fromButton ? "직접 기록했어요." : "태그로 기록했어요." });
+    if(navigator.vibrate) navigator.vibrate(fromButton ? 12 : [0,28,60,28]);
+  }
+  repaint(true);
+}
+
+function repaint(skipHero){
+  paintHeader();
+  if(!skipHero) heroIdle();
+  paintRail(); paintLegs(); paintManual(); paintHistory(); paintInsight();
+  $("csvCount").textContent = records.length ? `${records.length}건` : "";
+  $("dataNote").textContent = store.persistent
+    ? "기록은 이 브라우저에만 저장돼요. 앱 삭제나 사이트 데이터 삭제 시 사라지니 주기적으로 CSV로 내보내세요."
+    : "이 환경에서는 저장소를 쓸 수 없어 기록이 새로고침하면 사라져요. 실제 주소에 올린 뒤 사용해 주세요.";
+}
+
+/* ────────────────────────────────────────────────
+   설치 / 오프라인
+   ──────────────────────────────────────────────── */
+function setupPwa(){
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", ()=>{
+      navigator.serviceWorker.register("./sw.js").catch(()=>{});
+    });
+  }
+
+  const bar = $("installbar");
+  let deferred = null;
+
+  window.addEventListener("beforeinstallprompt", e=>{
+    e.preventDefault();
+    deferred = e;
+    bar.classList.add("show");
+  });
+
+  $("btnInstall").addEventListener("click", async ()=>{
+    if(!deferred) return;
+    deferred.prompt();
+    await deferred.userChoice;
+    deferred = null;
+    bar.classList.remove("show");
+  });
+
+  window.addEventListener("appinstalled", ()=> bar.classList.remove("show"));
+
+  const netState = ()=> document.body.classList.toggle("is-offline", !navigator.onLine);
+  window.addEventListener("online", netState);
+  window.addEventListener("offline", netState);
+  netState();
+}
+
+function boot(){
+  setupPwa();
+  paintTags();
+  $("btnCsv").addEventListener("click", exportCsv);
+  $("btnWipe").addEventListener("click", ()=>{
+    if(!confirm("모든 출근 기록을 지울까요? 되돌릴 수 없어요.")) return;
+    records = []; store.save(records); repaint();
+  });
+
+  const ev = new URLSearchParams(location.search).get("event");
+  if(ev){
+    handleRecord(ev, "nfc", false);
+    // 새로고침으로 중복 기록되지 않도록 주소에서 파라미터 제거
+    history.replaceState(null, "", location.pathname);
+  } else {
+    repaint();
+  }
+
+  setInterval(paintHeader, 20000);
+  document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) paintHeader(); });
+}
+
+boot();
+</script>
+</body>
+</html>

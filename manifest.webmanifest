@@ -1,0 +1,22 @@
+{
+  "name": "출근 기록",
+  "short_name": "출근 기록",
+  "description": "NFC 태그를 찍으면 출발·탑승·도착 시각이 자동으로 남습니다.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0E1726",
+  "theme_color": "#0E1726",
+  "lang": "ko",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "집 출발 기록",   "url": "./?event=home_departure" },
+    { "name": "버스 탑승 기록", "url": "./?event=bus_board" },
+    { "name": "회사 도착 기록", "url": "./?event=office_arrival" }
+  ]
+}
