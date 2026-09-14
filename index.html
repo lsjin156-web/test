@@ -54,6 +54,16 @@ body{
 .installbar .txt b{display:block;font-weight:700;color:var(--amber);margin-bottom:2px}
 .installbar button{width:auto;flex:0 0 auto;margin-left:auto;padding:11px 15px;
   background:var(--amber);border-color:var(--amber);color:#241503;border-radius:10px}
+.updatebar{
+  display:none;align-items:center;gap:12px;
+  border:1px solid var(--mint);border-radius:12px;
+  padding:14px;margin-top:18px;background:rgba(111,216,176,.07);
+}
+.updatebar.show{display:flex}
+.updatebar .txt{font-size:14.5px;line-height:1.45}
+.updatebar .txt b{display:block;font-weight:700;color:var(--mint);margin-bottom:2px}
+.updatebar button{width:auto;flex:0 0 auto;margin-left:auto;padding:11px 15px;
+  background:var(--mint);border-color:var(--mint);color:#08251A;border-radius:10px}
 .daystamp .offline{
   display:none;font-size:13px;color:var(--rose);font-weight:600;
 }
@@ -81,6 +91,44 @@ body.is-offline .daystamp .live{margin-left:10px}
   .hero.fresh .what{animation:land .5s .06s cubic-bezier(.16,1,.3,1) both}
 }
 @keyframes land{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+
+/* ── 히어로 액션 ── */
+.heroaction{margin-top:16px;display:none}
+.heroaction.show{display:block}
+.heroaction button{
+  width:auto;margin:0 auto;justify-content:center;text-align:center;
+  padding:12px 20px;border-radius:10px;font-size:15px;
+}
+
+/* ── 시간대 설정 ── */
+.window{border:1px solid var(--line);border-radius:12px;background:var(--ink-2);padding:16px}
+.window .head{display:flex;align-items:center;gap:12px}
+.window .head .ttl{font-size:16px;font-weight:600}
+.window .body{margin-top:14px}
+.window.off .body{display:none}
+.times{display:flex;align-items:center;gap:10px}
+.times input[type=time]{
+  flex:1;font:inherit;font-size:19px;font-weight:700;letter-spacing:-0.02em;
+  font-variant-numeric:tabular-nums;
+  color:var(--pale);background:var(--ink);border:1px solid var(--line);
+  border-radius:10px;padding:12px 10px;text-align:center;
+  -webkit-appearance:none;appearance:none;
+}
+.times input[type=time]:focus{outline:2px solid var(--amber);outline-offset:1px}
+.times .tilde{color:var(--dim);font-size:16px}
+.window .hint{font-size:14px;color:var(--dim);margin-top:12px;line-height:1.55}
+.window .row{margin-top:12px}
+.window .row button{padding:11px 12px;font-size:14.5px;border-radius:9px}
+
+/* 스위치 */
+.sw{margin-left:auto;flex:0 0 auto;position:relative;width:50px;height:30px;cursor:pointer}
+.sw input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.sw .track{position:absolute;inset:0;border-radius:15px;background:var(--line);transition:background .15s ease}
+.sw .knob{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
+  background:var(--dim);transition:transform .15s ease,background .15s ease}
+.sw input:checked ~ .track{background:rgba(255,180,77,.3)}
+.sw input:checked ~ .knob{transform:translateX(20px);background:var(--amber)}
+.sw input:focus-visible ~ .track{outline:2px solid var(--amber);outline-offset:2px}
 
 /* ── 타임라인 레일 ── */
 .rail{border-top:1px solid var(--line);padding:22px 0 4px}
@@ -176,15 +224,46 @@ button.warn{color:var(--rose)}
     <button id="btnInstall">설치</button>
   </div>
 
+  <div class="updatebar" id="updatebar">
+    <div class="txt"><b>새 버전이 준비됐어요</b>새로고침하면 바로 적용됩니다.</div>
+    <button id="btnReload">새로고침</button>
+  </div>
+
   <div class="hero empty" id="hero">
     <div class="kicker" id="heroKicker">오늘 기록</div>
     <div class="what" id="heroWhat">아직 없음</div>
     <div class="clock num" id="heroClock">--:--</div>
     <div class="note" id="heroNote">태그를 찍거나 아래에서 직접 기록하세요.</div>
+    <div class="heroaction" id="heroAction"></div>
   </div>
 
   <div class="rail" id="rail"></div>
   <div class="legs" id="legs"></div>
+
+  <section>
+    <h2>출근 시간대</h2>
+    <div class="window" id="window">
+      <div class="head">
+        <span class="ttl">이 시간에만 태그 인식</span>
+        <label class="sw">
+          <input type="checkbox" id="winOn">
+          <span class="track"></span><span class="knob"></span>
+        </label>
+      </div>
+      <div class="body">
+        <div class="times">
+          <input type="time" id="winStart">
+          <span class="tilde">부터</span>
+          <input type="time" id="winEnd">
+          <span class="tilde">까지</span>
+        </div>
+        <p class="hint" id="winHint"></p>
+        <div class="row">
+          <button class="ghost" id="winAuto">내 기록에 맞춰 설정</button>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <section>
     <h2>직접 기록</h2>
@@ -257,6 +336,40 @@ const store = (()=>{
 })();
 
 let records = store.load();
+
+/* ────────────────────────────────────────────────
+   출근 시간대 — 이 범위 밖의 NFC 태그는 기록하지 않는다.
+   지갑이나 책상에 붙은 태그가 낮에 실수로 찍히는 걸 막기 위한 장치.
+   직접 기록 버튼은 의도적인 행동이므로 이 필터를 적용하지 않는다.
+   ──────────────────────────────────────────────── */
+const SET_KEY = "commuteLog.settings.v1";
+const DEFAULT_SETTINGS = { enabled:true, start:"06:00", end:"10:00" };
+
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(SET_KEY);
+    if(!raw) return { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+  }catch(e){ return { ...DEFAULT_SETTINGS }; }
+}
+function saveSettings(){
+  try{ localStorage.setItem(SET_KEY, JSON.stringify(settings)); }catch(e){}
+}
+let settings = loadSettings();
+
+function toMin(hhmmStr){
+  const [h,m] = String(hhmmStr).split(":").map(Number);
+  return (h||0)*60 + (m||0);
+}
+function inWindow(date){
+  if(!settings.enabled) return true;
+  const d = new Date(date);
+  const now = d.getHours()*60 + d.getMinutes();
+  const a = toMin(settings.start), b = toMin(settings.end);
+  if(a === b) return true;
+  return a < b ? (now >= a && now <= b)      // 06:00~10:00
+               : (now >= a || now <= b);     // 22:00~02:00 처럼 자정을 넘는 경우
+}
 
 /* ────────────────────────────────────────────────
    날짜 유틸
@@ -342,6 +455,16 @@ function paintHero(state){
   $("heroWhat").textContent   = state.what;
   $("heroClock").innerHTML    = state.clock;
   $("heroNote").textContent   = state.note || "";
+
+  const act = $("heroAction");
+  if(state.action){
+    act.className = "heroaction show";
+    act.innerHTML = `<button id="heroActBtn">${state.action.label}</button>`;
+    $("heroActBtn").addEventListener("click", state.action.run);
+  } else {
+    act.className = "heroaction";
+    act.innerHTML = "";
+  }
 }
 
 function heroIdle(){
@@ -578,15 +701,29 @@ function exportCsv(){
 /* ────────────────────────────────────────────────
    기록 처리 + 진입
    ──────────────────────────────────────────────── */
-function handleRecord(type, source, fromButton){
+function handleRecord(type, source, fromButton, bypassWindow){
   if(!EV[type]){
     paintHero({ mode:"empty", kicker:"알 수 없는 태그", what:type,
       clock:"--:--", note:"태그에 적힌 event 값을 확인해 주세요." });
     return;
   }
+  const e = EV[type];
+
+  // 태그로 들어왔는데 설정한 출근 시간대 밖이면 저장하지 않고 되묻는다.
+  if(source === "nfc" && !bypassWindow && !inWindow(new Date())){
+    const now = new Date();
+    paintHero({
+      mode:"dupe", kicker:"출근 시간대가 아니에요", what:`${e.emoji} ${e.label}`,
+      clock:`${hhmm(now)}<span class="sec">:${ss(now)}</span>`,
+      note:`${settings.start}~${settings.end} 사이만 기록하도록 설정돼 있어요.`,
+      action:{ label:"그래도 기록하기", run:()=>handleRecord(type, source, false, true) }
+    });
+    repaint(true);
+    return;
+  }
+
   const res = addRecord(type, source);
   const r = res.record;
-  const e = EV[type];
 
   if(res.status === "dupe"){
     paintHero({ mode:"dupe", kicker:"이미 기록됨", what:`${e.emoji} ${e.label}`,
@@ -601,10 +738,45 @@ function handleRecord(type, source, fromButton){
   repaint(true);
 }
 
+function paintWindow(){
+  const box = $("window");
+  box.className = "window" + (settings.enabled ? "" : " off");
+  $("winOn").checked  = settings.enabled;
+  $("winStart").value = settings.start;
+  $("winEnd").value   = settings.end;
+
+  const a = toMin(settings.start), b = toMin(settings.end);
+  const span = a < b ? b - a : (1440 - a) + b;
+  $("winHint").textContent = settings.enabled
+    ? `이 ${fmtDur(span)} 안에 찍힌 태그만 출근으로 기록돼요. 이 시간 밖에 찍히면 확인을 한 번 더 물어봅니다. 직접 기록 버튼은 시간대와 상관없이 항상 저장돼요.`
+    : "지금은 시간대와 상관없이 모든 태그가 기록돼요.";
+}
+
+function autoWindow(){
+  const times = records
+    .filter(r => EV[r.type])
+    .map(r => { const d = new Date(r.ts); return d.getHours()*60 + d.getMinutes(); });
+
+  if(times.length < 3){
+    $("winHint").textContent = "기록이 3건 이상 쌓이면 실제 태그 시각에 맞춰 자동으로 잡아드릴게요.";
+    return;
+  }
+  const lo = Math.max(0,    Math.min(...times) - 30);
+  const hi = Math.min(1439, Math.max(...times) + 30);
+  const fmt = v => `${p2(Math.floor(v/60))}:${p2(v%60)}`;
+  settings.start = fmt(lo);
+  settings.end   = fmt(hi);
+  settings.enabled = true;
+  saveSettings();
+  paintWindow();
+  $("winHint").textContent =
+    `지금까지 태그된 시각(${fmt(Math.min(...times))}~${fmt(Math.max(...times))})에 앞뒤 30분을 더해 잡았어요. 직접 고쳐도 됩니다.`;
+}
+
 function repaint(skipHero){
   paintHeader();
   if(!skipHero) heroIdle();
-  paintRail(); paintLegs(); paintManual(); paintHistory(); paintInsight();
+  paintRail(); paintLegs(); paintManual(); paintHistory(); paintInsight(); paintWindow();
   $("csvCount").textContent = records.length ? `${records.length}건` : "";
   $("dataNote").textContent = store.persistent
     ? "기록은 이 브라우저에만 저장돼요. 앱 삭제나 사이트 데이터 삭제 시 사라지니 주기적으로 CSV로 내보내세요."
@@ -619,6 +791,24 @@ function setupPwa(){
     window.addEventListener("load", ()=>{
       navigator.serviceWorker.register("./sw.js").catch(()=>{});
     });
+
+    // 서비스워커가 뒤에서 새 버전을 받아오면 알려준다.
+    navigator.serviceWorker.addEventListener("message", ev=>{
+      if(ev.data && ev.data.type === "update-ready"){
+        $("updatebar").classList.add("show");
+      }
+    });
+
+    $("btnReload").addEventListener("click", ()=> location.reload());
+
+    // 앱을 다시 열 때마다 갱신 여부를 확인한다.
+    const ping = ()=>{
+      if(navigator.serviceWorker.controller && navigator.onLine){
+        navigator.serviceWorker.controller.postMessage("check-update");
+      }
+    };
+    setTimeout(ping, 1500);
+    document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) ping(); });
   }
 
   const bar = $("installbar");
@@ -649,6 +839,17 @@ function setupPwa(){
 function boot(){
   setupPwa();
   paintTags();
+  $("winOn").addEventListener("change", e=>{
+    settings.enabled = e.target.checked; saveSettings(); paintWindow();
+  });
+  $("winStart").addEventListener("change", e=>{
+    if(e.target.value){ settings.start = e.target.value; saveSettings(); paintWindow(); }
+  });
+  $("winEnd").addEventListener("change", e=>{
+    if(e.target.value){ settings.end = e.target.value; saveSettings(); paintWindow(); }
+  });
+  $("winAuto").addEventListener("click", autoWindow);
+
   $("btnCsv").addEventListener("click", exportCsv);
   $("btnWipe").addEventListener("click", ()=>{
     if(!confirm("모든 출근 기록을 지울까요? 되돌릴 수 없어요.")) return;
